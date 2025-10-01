@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Breakout</title>
+    <title>Meeting Breakout</title>
     <style>
         body {
             margin: 0;
@@ -55,7 +55,7 @@
 
         #gameCanvas {
             border: 2px solid #fff;
-            background: #000;
+            background: #1a1a2e;
         }
         #score {
             position: absolute;
@@ -153,7 +153,7 @@
                 <tr>
                     <th>#</th>
                     <th>Score</th>
-                    <th>Bricks</th>
+                    <th>Meetings</th>
                     <th>Date</th>
                 </tr>
             </thead>
@@ -174,15 +174,15 @@
         const scoresBodyEl = document.getElementById('scoresBody');
 
         // Game configuration
-        const BRICK_ROWS = 10;
-        const BRICK_COLS = 12;
         const MAX_HIGH_SCORES = 10;
         let newHighScoreIndex = -1;
-        const BRICK_HEIGHT = 20;
-        const BRICK_PADDING = 5;
-        const BRICK_OFFSET_TOP = 60;
-        const BRICK_OFFSET_LEFT = 35;
+        const NUM_BALLS = 2; // Configure number of balls in play
+        const BRICK_COLS = 15;
+        const BRICK_PADDING = 3;
+        const BRICK_OFFSET_TOP = 80;
+        const BRICK_OFFSET_LEFT = 20;
         const BRICK_WIDTH = (canvas.width - BRICK_OFFSET_LEFT * 2 - BRICK_PADDING * (BRICK_COLS - 1)) / BRICK_COLS;
+        const BASE_BRICK_HEIGHT = 25;
         
         const PADDLE_WIDTH = 120;
         const PADDLE_HEIGHT = 15;
@@ -192,12 +192,39 @@
         const BALL_RADIUS = 8;
         const BALL_BASE_SPEED = 5;
         
-        const BRICK_COLORS = [
-            '#FF0000', '#FF0000',  // Red
-            '#FF8800', '#FF8800',  // Orange
-            '#FFFF00', '#FFFF00',  // Yellow
-            '#00FF00', '#00FF00',  // Green
-            '#0088FF', '#8800FF'   // Blue, Purple
+        const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+        
+        const MEETING_TITLES = [
+            'Standup',
+            '1:1',
+            'Product Review',
+            'Sprint Planning',
+            'Client Call',
+            'Design Sync',
+            'Budget Review',
+            'All Hands',
+            'Engineering Sync',
+            'Marketing Brief',
+            'Sales Update',
+            'Strategy Session',
+            'Retrospective',
+            'Interview',
+            'Training',
+            'Board Meeting',
+            'Vendor Demo',
+            'Code Review',
+            'Architecture',
+            'Customer Feedback',
+            'Planning',
+            'Quarterly Review',
+            'Team Lunch',
+            'Performance Review'
+        ];
+        
+        const MEETING_COLORS = [
+            '#4285F4', '#EA4335', '#FBBC04', '#34A853', 
+            '#FF6D00', '#9C27B0', '#00897B', '#D81B60',
+            '#3F51B5', '#E91E63', '#009688', '#FF5722'
         ];
 
         let gameState = {
@@ -205,49 +232,99 @@
             lives: 3,
             gameOver: false,
             won: false,
-            bricksDestroyed: 0,
+            meetingsDestroyed: 0,
             paddle: {
                 x: canvas.width / 2 - PADDLE_WIDTH / 2,
                 vx: 0
             },
-            ball: {
-                x: 0,
-                y: 0,
-                vx: 0,
-                vy: 0,
-                active: false
-            },
+            balls: [],
             bricks: [],
             keys: {}
         };
 
         function createBricks() {
             const bricks = [];
-            for (let row = 0; row < BRICK_ROWS; row++) {
-                for (let col = 0; col < BRICK_COLS; col++) {
+            const colsPerDay = 3;
+            
+            for (let day = 0; day < 5; day++) {
+                const dayStartCol = day * colsPerDay;
+                let currentRow = 0;
+                
+                // Random number of meetings per day (5-8)
+                const numMeetings = Math.floor(Math.random() * 4) + 5;
+                
+                for (let m = 0; m < numMeetings; m++) {
+                    // Random height: 1-4 rows tall
+                    const rowSpan = Math.floor(Math.random() * 4) + 1;
+                    const height = rowSpan * BASE_BRICK_HEIGHT + (rowSpan - 1) * BRICK_PADDING;
+                    
+                    // Random width: 1-3 columns wide
+                    const colSpan = Math.min(Math.floor(Math.random() * 3) + 1, colsPerDay);
+                    const width = colSpan * BRICK_WIDTH + (colSpan - 1) * BRICK_PADDING;
+                    
+                    const y = BRICK_OFFSET_TOP + currentRow * (BASE_BRICK_HEIGHT + BRICK_PADDING);
+                    
+                    // Stop if we're getting too tall
+                    if (y + height > 350) break;
+                    
                     bricks.push({
-                        x: BRICK_OFFSET_LEFT + col * (BRICK_WIDTH + BRICK_PADDING),
-                        y: BRICK_OFFSET_TOP + row * (BRICK_HEIGHT + BRICK_PADDING),
-                        width: BRICK_WIDTH,
-                        height: BRICK_HEIGHT,
-                        color: BRICK_COLORS[row],
+                        x: BRICK_OFFSET_LEFT + dayStartCol * (BRICK_WIDTH + BRICK_PADDING),
+                        y: y,
+                        width: width,
+                        height: height,
+                        title: MEETING_TITLES[Math.floor(Math.random() * MEETING_TITLES.length)],
+                        color: MEETING_COLORS[Math.floor(Math.random() * MEETING_COLORS.length)],
+                        day: DAYS[day],
                         active: true,
-                        points: (BRICK_ROWS - row) * 10
+                        points: rowSpan * 10
                     });
+                    
+                    currentRow += rowSpan;
                 }
             }
+            
             return bricks;
         }
 
         function launchBall() {
             const angle = -Math.PI / 4 + (Math.random() * Math.PI / 4 - Math.PI / 8);
-            gameState.ball = {
-                x: canvas.width / 2,
+            const offsetX = (Math.random() - 0.5) * 200;
+            return {
+                x: canvas.width / 2 + offsetX,
                 y: canvas.height / 2,
                 vx: Math.cos(angle) * BALL_BASE_SPEED,
                 vy: Math.sin(angle) * BALL_BASE_SPEED,
                 active: true
             };
+        }
+
+        function addRandomMeeting() {
+            // Add a new random meeting to a random day
+            const day = Math.floor(Math.random() * 5);
+            const colsPerDay = 3;
+            const dayStartCol = day * colsPerDay;
+            
+            // Random height and width
+            const rowSpan = Math.floor(Math.random() * 3) + 1;
+            const height = rowSpan * BASE_BRICK_HEIGHT + (rowSpan - 1) * BRICK_PADDING;
+            const colSpan = Math.min(Math.floor(Math.random() * 2) + 1, colsPerDay);
+            const width = colSpan * BRICK_WIDTH + (colSpan - 1) * BRICK_PADDING;
+            
+            // Random y position in the meeting area
+            const maxY = 300;
+            const y = BRICK_OFFSET_TOP + Math.floor(Math.random() * (maxY - BRICK_OFFSET_TOP - height));
+            
+            gameState.bricks.push({
+                x: BRICK_OFFSET_LEFT + dayStartCol * (BRICK_WIDTH + BRICK_PADDING),
+                y: y,
+                width: width,
+                height: height,
+                title: MEETING_TITLES[Math.floor(Math.random() * MEETING_TITLES.length)],
+                color: MEETING_COLORS[Math.floor(Math.random() * MEETING_COLORS.length)],
+                day: DAYS[day],
+                active: true,
+                points: rowSpan * 10
+            });
         }
 
         function initGame() {
@@ -256,85 +333,124 @@
                 lives: 3,
                 gameOver: false,
                 won: false,
-                bricksDestroyed: 0,
+                meetingsDestroyed: 0,
                 paddle: {
                     x: canvas.width / 2 - PADDLE_WIDTH / 2,
                     vx: 0
                 },
-                ball: {
-                    x: 0,
-                    y: 0,
-                    vx: 0,
-                    vy: 0,
-                    active: false
-                },
+                balls: [],
                 bricks: createBricks(),
                 keys: {}
             };
+
+            // Launch initial balls
+            for (let i = 0; i < NUM_BALLS; i++) {
+                gameState.balls.push(launchBall());
+            }
 
             gameOverEl.style.display = 'none';
             highScoresEl.style.display = 'none';
             newHighScoreIndex = -1;
             scoreEl.textContent = 'Score: 0';
             livesEl.textContent = 'Lives: 3';
+        }
+
+        function drawBricks() {
+            // Draw day headers
+            ctx.font = 'bold 14px Arial';
+            ctx.fillStyle = '#FFFFFF';
+            const colsPerDay = 3;
+            for (let day = 0; day < 5; day++) {
+                const dayStartCol = day * colsPerDay;
+                const x = BRICK_OFFSET_LEFT + dayStartCol * (BRICK_WIDTH + BRICK_PADDING) + (colsPerDay * BRICK_WIDTH) / 2;
+                ctx.textAlign = 'center';
+                ctx.fillText(DAYS[day], x, BRICK_OFFSET_TOP - 30);
+            }
             
-            launchBall();
+            // Draw time markers
+            ctx.font = '10px Arial';
+            ctx.fillStyle = '#888';
+            ctx.textAlign = 'right';
+            for (let i = 0; i <= 10; i++) {
+                const y = BRICK_OFFSET_TOP + i * (BASE_BRICK_HEIGHT + BRICK_PADDING);
+                if (y < 380) {
+                    const hour = 8 + i;
+                    ctx.fillText(`${hour}:00`, BRICK_OFFSET_LEFT - 10, y + 5);
+                }
+            }
+            
+            // Draw meetings
+            gameState.bricks.forEach(brick => {
+                if (brick.active) {
+                    // Draw meeting block
+                    ctx.fillStyle = brick.color;
+                    ctx.fillRect(brick.x, brick.y, brick.width, brick.height);
+                    
+                    // Add border
+                    ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(brick.x, brick.y, brick.width, brick.height);
+                    
+                    // Add subtle highlight
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+                    ctx.fillRect(brick.x, brick.y, brick.width, brick.height * 0.3);
+                    
+                    // Draw meeting title
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.font = 'bold 11px Arial';
+                    ctx.textAlign = 'center';
+                    
+                    const centerX = brick.x + brick.width / 2;
+                    const centerY = brick.y + brick.height / 2 + 4;
+                    
+                    // Truncate text if needed
+                    let displayText = brick.title;
+                    ctx.textAlign = 'center';
+                    const maxWidth = brick.width - 10;
+                    
+                    while (ctx.measureText(displayText).width > maxWidth && displayText.length > 0) {
+                        displayText = displayText.slice(0, -1);
+                    }
+                    if (displayText.length < brick.title.length && displayText.length > 3) {
+                        displayText = displayText.slice(0, -3) + '...';
+                    }
+                    
+                    ctx.fillText(displayText, centerX, centerY);
+                }
+            });
         }
 
         function drawPaddle() {
             ctx.fillStyle = '#FFFFFF';
             ctx.fillRect(gameState.paddle.x, PADDLE_Y, PADDLE_WIDTH, PADDLE_HEIGHT);
             
-            // Add highlight
             ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
             ctx.fillRect(gameState.paddle.x, PADDLE_Y, PADDLE_WIDTH, PADDLE_HEIGHT / 3);
         }
 
-        function drawBall() {
+        function drawBall(ball) {
             ctx.fillStyle = '#FFFFFF';
             ctx.beginPath();
-            ctx.arc(gameState.ball.x, gameState.ball.y, BALL_RADIUS, 0, Math.PI * 2);
+            ctx.arc(ball.x, ball.y, BALL_RADIUS, 0, Math.PI * 2);
             ctx.fill();
             
-            // Add shine
             ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
             ctx.beginPath();
-            ctx.arc(gameState.ball.x - 2, gameState.ball.y - 2, BALL_RADIUS / 2, 0, Math.PI * 2);
+            ctx.arc(ball.x - 2, ball.y - 2, BALL_RADIUS / 2, 0, Math.PI * 2);
             ctx.fill();
-        }
-
-        function drawBricks() {
-            gameState.bricks.forEach(brick => {
-                if (brick.active) {
-                    ctx.fillStyle = brick.color;
-                    ctx.fillRect(brick.x, brick.y, brick.width, brick.height);
-                    
-                    // Add border
-                    ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
-                    ctx.lineWidth = 2;
-                    ctx.strokeRect(brick.x, brick.y, brick.width, brick.height);
-                    
-                    // Add highlight
-                    ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
-                    ctx.fillRect(brick.x, brick.y, brick.width, brick.height / 3);
-                }
-            });
         }
 
         function updatePaddle() {
-            // Update paddle velocity based on keys
             if (gameState.keys['ArrowLeft']) {
                 gameState.paddle.vx = -PADDLE_SPEED;
             } else if (gameState.keys['ArrowRight']) {
                 gameState.paddle.vx = PADDLE_SPEED;
             } else {
-                gameState.paddle.vx *= 0.8; // Deceleration when no key pressed
+                gameState.paddle.vx *= 0.8;
             }
 
-            // Update paddle position
             gameState.paddle.x += gameState.paddle.vx;
 
-            // Keep paddle in bounds
             if (gameState.paddle.x < 0) {
                 gameState.paddle.x = 0;
                 gameState.paddle.vx = 0;
@@ -346,92 +462,94 @@
         }
 
         function updateBall() {
-            if (!gameState.ball.active) return;
-
-            gameState.ball.x += gameState.ball.vx;
-            gameState.ball.y += gameState.ball.vy;
-
-            // Wall collisions (left and right)
-            if (gameState.ball.x - BALL_RADIUS <= 0 || gameState.ball.x + BALL_RADIUS >= canvas.width) {
-                gameState.ball.vx = -gameState.ball.vx;
-                gameState.ball.x = Math.max(BALL_RADIUS, Math.min(canvas.width - BALL_RADIUS, gameState.ball.x));
-            }
-
-            // Top wall collision
-            if (gameState.ball.y - BALL_RADIUS <= 0) {
-                gameState.ball.vy = -gameState.ball.vy;
-                gameState.ball.y = BALL_RADIUS;
-            }
-
-            // Bottom wall - lose a life
-            if (gameState.ball.y - BALL_RADIUS > canvas.height) {
-                gameState.lives--;
-                livesEl.textContent = 'Lives: ' + gameState.lives;
+            // Update all balls
+            for (let i = gameState.balls.length - 1; i >= 0; i--) {
+                const ball = gameState.balls[i];
                 
-                if (gameState.lives <= 0) {
-                    gameState.gameOver = true;
-                    handleGameOver();
-                } else {
-                    launchBall();
+                ball.x += ball.vx;
+                ball.y += ball.vy;
+
+                // Wall collisions (left and right)
+                if (ball.x - BALL_RADIUS <= 0 || ball.x + BALL_RADIUS >= canvas.width) {
+                    ball.vx = -ball.vx;
+                    ball.x = Math.max(BALL_RADIUS, Math.min(canvas.width - BALL_RADIUS, ball.x));
                 }
-            }
 
-            // Paddle collision
-            if (gameState.ball.y + BALL_RADIUS >= PADDLE_Y &&
-                gameState.ball.y - BALL_RADIUS <= PADDLE_Y + PADDLE_HEIGHT &&
-                gameState.ball.x >= gameState.paddle.x &&
-                gameState.ball.x <= gameState.paddle.x + PADDLE_WIDTH) {
-                
-                // Calculate where on paddle the ball hit (0 = left edge, 1 = right edge)
-                const hitPos = (gameState.ball.x - gameState.paddle.x) / PADDLE_WIDTH;
-                
-                // Angle ranges from -60 to 60 degrees based on hit position
-                const angle = -Math.PI / 3 + (hitPos * (2 * Math.PI / 3));
-                
-                // Speed is affected by paddle velocity (faster paddle = faster ball)
-                const paddleSpeedBonus = Math.abs(gameState.paddle.vx) * 0.3;
-                const speed = BALL_BASE_SPEED + paddleSpeedBonus;
-                
-                gameState.ball.vx = Math.sin(angle) * speed;
-                gameState.ball.vy = -Math.cos(angle) * speed;
-                
-                // Make sure ball is above paddle
-                gameState.ball.y = PADDLE_Y - BALL_RADIUS;
-            }
+                // Top wall collision
+                if (ball.y - BALL_RADIUS <= 0) {
+                    ball.vy = -ball.vy;
+                    ball.y = BALL_RADIUS;
+                }
 
-            // Brick collisions
-            gameState.bricks.forEach(brick => {
-                if (!brick.active) return;
-
-                if (gameState.ball.x + BALL_RADIUS >= brick.x &&
-                    gameState.ball.x - BALL_RADIUS <= brick.x + brick.width &&
-                    gameState.ball.y + BALL_RADIUS >= brick.y &&
-                    gameState.ball.y - BALL_RADIUS <= brick.y + brick.height) {
+                // Bottom wall - ball fell
+                if (ball.y - BALL_RADIUS > canvas.height) {
+                    // Remove this ball
+                    gameState.balls.splice(i, 1);
                     
-                    brick.active = false;
-                    gameState.score += brick.points;
-                    gameState.bricksDestroyed++;
-                    scoreEl.textContent = 'Score: ' + gameState.score;
-
-                    // Determine which side of brick was hit
-                    const ballCenterX = gameState.ball.x;
-                    const ballCenterY = gameState.ball.y;
-                    const brickCenterX = brick.x + brick.width / 2;
-                    const brickCenterY = brick.y + brick.height / 2;
-
-                    const dx = ballCenterX - brickCenterX;
-                    const dy = ballCenterY - brickCenterY;
-
-                    // Determine if hit was more horizontal or vertical
-                    if (Math.abs(dx / brick.width) > Math.abs(dy / brick.height)) {
-                        // Hit left or right side
-                        gameState.ball.vx = -gameState.ball.vx;
-                    } else {
-                        // Hit top or bottom
-                        gameState.ball.vy = -gameState.ball.vy;
+                    // Add a new meeting
+                    addRandomMeeting();
+                    
+                    // Spawn a new ball
+                    gameState.balls.push(launchBall());
+                    
+                    // Lose a life
+                    gameState.lives--;
+                    livesEl.textContent = 'Lives: ' + gameState.lives;
+                    
+                    if (gameState.lives <= 0) {
+                        gameState.gameOver = true;
+                        handleGameOver();
+                        return;
                     }
+                    continue;
                 }
-            });
+
+                // Paddle collision
+                if (ball.y + BALL_RADIUS >= PADDLE_Y &&
+                    ball.y - BALL_RADIUS <= PADDLE_Y + PADDLE_HEIGHT &&
+                    ball.x >= gameState.paddle.x &&
+                    ball.x <= gameState.paddle.x + PADDLE_WIDTH) {
+                    
+                    const hitPos = (ball.x - gameState.paddle.x) / PADDLE_WIDTH;
+                    const angle = -Math.PI / 3 + (hitPos * (2 * Math.PI / 3));
+                    const paddleSpeedBonus = Math.abs(gameState.paddle.vx) * 0.3;
+                    const speed = BALL_BASE_SPEED + paddleSpeedBonus;
+                    
+                    ball.vx = Math.sin(angle) * speed;
+                    ball.vy = -Math.cos(angle) * speed;
+                    ball.y = PADDLE_Y - BALL_RADIUS;
+                }
+
+                // Brick collisions
+                gameState.bricks.forEach(brick => {
+                    if (!brick.active) return;
+
+                    if (ball.x + BALL_RADIUS >= brick.x &&
+                        ball.x - BALL_RADIUS <= brick.x + brick.width &&
+                        ball.y + BALL_RADIUS >= brick.y &&
+                        ball.y - BALL_RADIUS <= brick.y + brick.height) {
+                        
+                        brick.active = false;
+                        gameState.score += brick.points;
+                        gameState.meetingsDestroyed++;
+                        scoreEl.textContent = 'Score: ' + gameState.score;
+
+                        const ballCenterX = ball.x;
+                        const ballCenterY = ball.y;
+                        const brickCenterX = brick.x + brick.width / 2;
+                        const brickCenterY = brick.y + brick.height / 2;
+
+                        const dx = ballCenterX - brickCenterX;
+                        const dy = ballCenterY - brickCenterY;
+
+                        if (Math.abs(dx / brick.width) > Math.abs(dy / brick.height)) {
+                            ball.vx = -ball.vx;
+                        } else {
+                            ball.vy = -ball.vy;
+                        }
+                    }
+                });
+            }
 
             // Check for win condition
             const activeBricks = gameState.bricks.filter(b => b.active).length;
@@ -454,42 +572,25 @@
 
         function saveHighScores(scores) {
             localStorage.setItem('breakoutHighScores', JSON.stringify(scores));
-            console.log('High scores saved to localStorage:', scores);
             return true;
         }
 
         function addHighScore(newScore) {
             let highScores = getHighScores();
-            
-            console.log('Current high scores:', highScores);
-            console.log('Adding new score:', newScore);
-            
-            // Add new score
             highScores.push(newScore);
-            
-            // Sort by score (descending)
             highScores.sort((a, b) => b.score - a.score);
             
-            // Find the index of the new score
             const index = highScores.findIndex(s => 
                 s.score === newScore.score && 
-                s.bricks === newScore.bricks && 
+                s.meetings === newScore.meetings && 
                 s.date === newScore.date
             );
             
-            console.log('New score index before trimming:', index);
-            
-            // Keep only top 10
             if (highScores.length > MAX_HIGH_SCORES) {
                 highScores = highScores.slice(0, MAX_HIGH_SCORES);
             }
             
-            console.log('High scores after trimming:', highScores);
-            
-            const saved = saveHighScores(highScores);
-            console.log('Save successful:', saved);
-            
-            // Return the index if it made the top 10, otherwise -1
+            saveHighScores(highScores);
             return index < MAX_HIGH_SCORES ? index : -1;
         }
 
@@ -510,7 +611,7 @@
                 row.innerHTML = `
                     <td>${index + 1}</td>
                     <td>${score.score}</td>
-                    <td>${score.bricks}</td>
+                    <td>${score.meetings}</td>
                     <td>${score.date}</td>
                 `;
                 scoresBodyEl.appendChild(row);
@@ -531,42 +632,37 @@
         function handleGameOver() {
             const finalScore = gameState.score;
             
-            // Create new score entry
             const newScore = {
                 score: finalScore,
-                bricks: gameState.bricksDestroyed,
+                meetings: gameState.meetingsDestroyed,
                 date: new Date().toLocaleDateString()
             };
             
-            // Add to high scores and get index
             newHighScoreIndex = addHighScore(newScore);
             
-            // Show game over message first
             if (gameState.won) {
                 if (newHighScoreIndex !== -1) {
-                    gameOverEl.innerHTML = `YOU WIN! NEW HIGH SCORE!<br><span style="font-size: 32px;">Score: ${finalScore} (Rank #${newHighScoreIndex + 1})</span><br><span style="font-size: 24px;">Bricks Destroyed: ${gameState.bricksDestroyed}</span><br><span style="font-size: 20px;">Press SPACE to see high scores</span>`;
+                    gameOverEl.innerHTML = `CALENDAR CLEARED!<br>NEW HIGH SCORE!<br><span style="font-size: 32px;">Score: ${finalScore} (Rank #${newHighScoreIndex + 1})</span><br><span style="font-size: 24px;">Meetings Destroyed: ${gameState.meetingsDestroyed}</span><br><span style="font-size: 20px;">Press SPACE to see high scores</span>`;
                 } else {
-                    gameOverEl.innerHTML = `YOU WIN!<br><span style="font-size: 32px;">Final Score: ${finalScore}</span><br><span style="font-size: 24px;">Bricks Destroyed: ${gameState.bricksDestroyed}</span><br><span style="font-size: 20px;">Press SPACE to see high scores</span>`;
+                    gameOverEl.innerHTML = `CALENDAR CLEARED!<br><span style="font-size: 32px;">Final Score: ${finalScore}</span><br><span style="font-size: 24px;">Meetings Destroyed: ${gameState.meetingsDestroyed}</span><br><span style="font-size: 20px;">Press SPACE to see high scores</span>`;
                 }
             } else {
                 if (newHighScoreIndex !== -1) {
-                    gameOverEl.innerHTML = `NEW HIGH SCORE!<br><span style="font-size: 32px;">Score: ${finalScore} (Rank #${newHighScoreIndex + 1})</span><br><span style="font-size: 24px;">Bricks Destroyed: ${gameState.bricksDestroyed}</span><br><span style="font-size: 20px;">Press SPACE to see high scores</span>`;
+                    gameOverEl.innerHTML = `NEW HIGH SCORE!<br><span style="font-size: 32px;">Score: ${finalScore} (Rank #${newHighScoreIndex + 1})</span><br><span style="font-size: 24px;">Meetings Destroyed: ${gameState.meetingsDestroyed}</span><br><span style="font-size: 20px;">Press SPACE to see high scores</span>`;
                 } else {
-                    gameOverEl.innerHTML = `GAME OVER<br><span style="font-size: 32px;">Final Score: ${finalScore}</span><br><span style="font-size: 24px;">Bricks Destroyed: ${gameState.bricksDestroyed}</span><br><span style="font-size: 20px;">Press SPACE to see high scores</span>`;
+                    gameOverEl.innerHTML = `GAME OVER<br><span style="font-size: 32px;">Final Score: ${finalScore}</span><br><span style="font-size: 24px;">Meetings Destroyed: ${gameState.meetingsDestroyed}</span><br><span style="font-size: 20px;">Press SPACE to see high scores</span>`;
                 }
             }
             gameOverEl.style.display = 'block';
         }
 
         function drawGame() {
-            ctx.fillStyle = '#000';
+            ctx.fillStyle = '#1a1a2e';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
             drawBricks();
             drawPaddle();
-            if (gameState.ball.active) {
-                drawBall();
-            }
+            gameState.balls.forEach(ball => drawBall(ball));
         }
 
         function gameLoop() {
