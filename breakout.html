@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Breakout</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #2c3e50;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: 'Courier New', monospace;
+            color: #fff;
+        }
+
+        .wood-veneer {
+          background: 
+              repeating-linear-gradient(0deg,
+                  transparent 0px,
+                  rgba(25, 17, 11, 0.8) 1px,
+                  transparent 2px,
+                  transparent 5px,
+                  rgba(41, 28, 18, 0.4) 6px,
+                  transparent 7px,
+                  transparent 10px,
+                  rgba(25, 17, 11, 0.6) 11px,
+                  transparent 12px,
+                  transparent 18px
+              ),
+              repeating-linear-gradient(0deg,
+                  transparent 0px,
+                  rgba(62, 42, 27, 0.4) 2px,
+                  transparent 3px,
+                  transparent 8px,
+                  rgba(41, 28, 18, 0.5) 9px,
+                  transparent 10px,
+                  transparent 14px
+              ),
+              linear-gradient(95deg, 
+                  #3e241a 0%,
+                  #6d4228 60%,
+                  #6d4228 100%
+              );
+          border-radius: 8px;
+          box-shadow: 
+              inset 0 1px 0 rgba(255, 255, 255, 0.05),
+              0 4px 20px rgba(0, 0, 0, 0.3);
+          position: relative;
+          padding: 20px;
+        }
+
+        #gameCanvas {
+            border: 2px solid #fff;
+            background: #000;
+        }
+        #score {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            font-size: 24px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+        }
+        #lives {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 24px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+        }
+        #gameOver {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 48px;
+            display: none;
+            text-align: center;
+            background: rgba(0,0,0,0.9);
+            padding: 30px;
+            border-radius: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+        }
+        #highScores {
+          position: fixed;
+          top: 50%;
+          left: 50%;
+          transform: translateX(-50%) translateY(-50%);
+          background: rgba(0,0,0,0.95);
+          padding: 30px;
+          border-radius: 10px;
+          display: none;
+          color: #fff;
+          min-width: 400px;
+        }
+        #highScores h2 {
+            margin-top: 0;
+            text-align: center;
+            color: #FFD700;
+        }
+        #highScores table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        #highScores th {
+            background: rgba(255, 215, 0, 0.2);
+            padding: 10px;
+            text-align: left;
+            border-bottom: 2px solid #FFD700;
+        }
+        #highScores td {
+            padding: 8px 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        #highScores tr.new-score {
+            background: rgba(0, 255, 0, 0.2);
+            animation: highlight 1s ease-in-out infinite;
+        }
+        @keyframes highlight {
+            0%, 100% { background: rgba(0, 255, 0, 0.2); }
+            50% { background: rgba(0, 255, 0, 0.4); }
+        }
+        #highScores button {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            margin-top: 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 18px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+        }
+        #highScores button:hover {
+            background: #45a049;
+        }
+    </style>
+</head>
+<body class="wood-veneer">
+    <div id="score">Score: 0</div>
+    <div id="lives">Lives: 3</div>
+    <div id="gameOver">GAME OVER<br><span style="font-size: 24px;">Press SPACE to restart</span></div>
+    <div id="highScores">
+        <h2>HIGH SCORES</h2>
+        <table id="scoresTable">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Score</th>
+                    <th>Bricks</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
+            <tbody id="scoresBody">
+            </tbody>
+        </table>
+        <button onclick="closeHighScores()">Continue (SPACE)</button>
+    </div>
+    <canvas id="gameCanvas" width="1200" height="600"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('score');
+        const livesEl = document.getElementById('lives');
+        const gameOverEl = document.getElementById('gameOver');
+        const highScoresEl = document.getElementById('highScores');
+        const scoresBodyEl = document.getElementById('scoresBody');
+
+        // Game configuration
+        const BRICK_ROWS = 10;
+        const BRICK_COLS = 12;
+        const MAX_HIGH_SCORES = 10;
+        let newHighScoreIndex = -1;
+        const BRICK_HEIGHT = 20;
+        const BRICK_PADDING = 5;
+        const BRICK_OFFSET_TOP = 60;
+        const BRICK_OFFSET_LEFT = 35;
+        const BRICK_WIDTH = (canvas.width - BRICK_OFFSET_LEFT * 2 - BRICK_PADDING * (BRICK_COLS - 1)) / BRICK_COLS;
+        
+        const PADDLE_WIDTH = 120;
+        const PADDLE_HEIGHT = 15;
+        const PADDLE_Y = canvas.height - 40;
+        const PADDLE_SPEED = 8;
+        
+        const BALL_RADIUS = 8;
+        const BALL_BASE_SPEED = 5;
+        
+        const BRICK_COLORS = [
+            '#FF0000', '#FF0000',  // Red
+            '#FF8800', '#FF8800',  // Orange
+            '#FFFF00', '#FFFF00',  // Yellow
+            '#00FF00', '#00FF00',  // Green
+            '#0088FF', '#8800FF'   // Blue, Purple
+        ];
+
+        let gameState = {
+            score: 0,
+            lives: 3,
+            gameOver: false,
+            won: false,
+            bricksDestroyed: 0,
+            paddle: {
+                x: canvas.width / 2 - PADDLE_WIDTH / 2,
+                vx: 0
+            },
+            ball: {
+                x: 0,
+                y: 0,
+                vx: 0,
+                vy: 0,
+                active: false
+            },
+            bricks: [],
+            keys: {}
+        };
+
+        function createBricks() {
+            const bricks = [];
+            for (let row = 0; row < BRICK_ROWS; row++) {
+                for (let col = 0; col < BRICK_COLS; col++) {
+                    bricks.push({
+                        x: BRICK_OFFSET_LEFT + col * (BRICK_WIDTH + BRICK_PADDING),
+                        y: BRICK_OFFSET_TOP + row * (BRICK_HEIGHT + BRICK_PADDING),
+                        width: BRICK_WIDTH,
+                        height: BRICK_HEIGHT,
+                        color: BRICK_COLORS[row],
+                        active: true,
+                        points: (BRICK_ROWS - row) * 10
+                    });
+                }
+            }
+            return bricks;
+        }
+
+        function launchBall() {
+            const angle = -Math.PI / 4 + (Math.random() * Math.PI / 4 - Math.PI / 8);
+            gameState.ball = {
+                x: canvas.width / 2,
+                y: canvas.height / 2,
+                vx: Math.cos(angle) * BALL_BASE_SPEED,
+                vy: Math.sin(angle) * BALL_BASE_SPEED,
+                active: true
+            };
+        }
+
+        function initGame() {
+            gameState = {
+                score: 0,
+                lives: 3,
+                gameOver: false,
+                won: false,
+                bricksDestroyed: 0,
+                paddle: {
+                    x: canvas.width / 2 - PADDLE_WIDTH / 2,
+                    vx: 0
+                },
+                ball: {
+                    x: 0,
+                    y: 0,
+                    vx: 0,
+                    vy: 0,
+                    active: false
+                },
+                bricks: createBricks(),
+                keys: {}
+            };
+
+            gameOverEl.style.display = 'none';
+            highScoresEl.style.display = 'none';
+            newHighScoreIndex = -1;
+            scoreEl.textContent = 'Score: 0';
+            livesEl.textContent = 'Lives: 3';
+            
+            launchBall();
+        }
+
+        function drawPaddle() {
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(gameState.paddle.x, PADDLE_Y, PADDLE_WIDTH, PADDLE_HEIGHT);
+            
+            // Add highlight
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.fillRect(gameState.paddle.x, PADDLE_Y, PADDLE_WIDTH, PADDLE_HEIGHT / 3);
+        }
+
+        function drawBall() {
+            ctx.fillStyle = '#FFFFFF';
+            ctx.beginPath();
+            ctx.arc(gameState.ball.x, gameState.ball.y, BALL_RADIUS, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Add shine
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+            ctx.beginPath();
+            ctx.arc(gameState.ball.x - 2, gameState.ball.y - 2, BALL_RADIUS / 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function drawBricks() {
+            gameState.bricks.forEach(brick => {
+                if (brick.active) {
+                    ctx.fillStyle = brick.color;
+                    ctx.fillRect(brick.x, brick.y, brick.width, brick.height);
+                    
+                    // Add border
+                    ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(brick.x, brick.y, brick.width, brick.height);
+                    
+                    // Add highlight
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+                    ctx.fillRect(brick.x, brick.y, brick.width, brick.height / 3);
+                }
+            });
+        }
+
+        function updatePaddle() {
+            // Update paddle velocity based on keys
+            if (gameState.keys['ArrowLeft']) {
+                gameState.paddle.vx = -PADDLE_SPEED;
+            } else if (gameState.keys['ArrowRight']) {
+                gameState.paddle.vx = PADDLE_SPEED;
+            } else {
+                gameState.paddle.vx *= 0.8; // Deceleration when no key pressed
+            }
+
+            // Update paddle position
+            gameState.paddle.x += gameState.paddle.vx;
+
+            // Keep paddle in bounds
+            if (gameState.paddle.x < 0) {
+                gameState.paddle.x = 0;
+                gameState.paddle.vx = 0;
+            }
+            if (gameState.paddle.x + PADDLE_WIDTH > canvas.width) {
+                gameState.paddle.x = canvas.width - PADDLE_WIDTH;
+                gameState.paddle.vx = 0;
+            }
+        }
+
+        function updateBall() {
+            if (!gameState.ball.active) return;
+
+            gameState.ball.x += gameState.ball.vx;
+            gameState.ball.y += gameState.ball.vy;
+
+            // Wall collisions (left and right)
+            if (gameState.ball.x - BALL_RADIUS <= 0 || gameState.ball.x + BALL_RADIUS >= canvas.width) {
+                gameState.ball.vx = -gameState.ball.vx;
+                gameState.ball.x = Math.max(BALL_RADIUS, Math.min(canvas.width - BALL_RADIUS, gameState.ball.x));
+            }
+
+            // Top wall collision
+            if (gameState.ball.y - BALL_RADIUS <= 0) {
+                gameState.ball.vy = -gameState.ball.vy;
+                gameState.ball.y = BALL_RADIUS;
+            }
+
+            // Bottom wall - lose a life
+            if (gameState.ball.y - BALL_RADIUS > canvas.height) {
+                gameState.lives--;
+                livesEl.textContent = 'Lives: ' + gameState.lives;
+                
+                if (gameState.lives <= 0) {
+                    gameState.gameOver = true;
+                    handleGameOver();
+                } else {
+                    launchBall();
+                }
+            }
+
+            // Paddle collision
+            if (gameState.ball.y + BALL_RADIUS >= PADDLE_Y &&
+                gameState.ball.y - BALL_RADIUS <= PADDLE_Y + PADDLE_HEIGHT &&
+                gameState.ball.x >= gameState.paddle.x &&
+                gameState.ball.x <= gameState.paddle.x + PADDLE_WIDTH) {
+                
+                // Calculate where on paddle the ball hit (0 = left edge, 1 = right edge)
+                const hitPos = (gameState.ball.x - gameState.paddle.x) / PADDLE_WIDTH;
+                
+                // Angle ranges from -60 to 60 degrees based on hit position
+                const angle = -Math.PI / 3 + (hitPos * (2 * Math.PI / 3));
+                
+                // Speed is affected by paddle velocity (faster paddle = faster ball)
+                const paddleSpeedBonus = Math.abs(gameState.paddle.vx) * 0.3;
+                const speed = BALL_BASE_SPEED + paddleSpeedBonus;
+                
+                gameState.ball.vx = Math.sin(angle) * speed;
+                gameState.ball.vy = -Math.cos(angle) * speed;
+                
+                // Make sure ball is above paddle
+                gameState.ball.y = PADDLE_Y - BALL_RADIUS;
+            }
+
+            // Brick collisions
+            gameState.bricks.forEach(brick => {
+                if (!brick.active) return;
+
+                if (gameState.ball.x + BALL_RADIUS >= brick.x &&
+                    gameState.ball.x - BALL_RADIUS <= brick.x + brick.width &&
+                    gameState.ball.y + BALL_RADIUS >= brick.y &&
+                    gameState.ball.y - BALL_RADIUS <= brick.y + brick.height) {
+                    
+                    brick.active = false;
+                    gameState.score += brick.points;
+                    gameState.bricksDestroyed++;
+                    scoreEl.textContent = 'Score: ' + gameState.score;
+
+                    // Determine which side of brick was hit
+                    const ballCenterX = gameState.ball.x;
+                    const ballCenterY = gameState.ball.y;
+                    const brickCenterX = brick.x + brick.width / 2;
+                    const brickCenterY = brick.y + brick.height / 2;
+
+                    const dx = ballCenterX - brickCenterX;
+                    const dy = ballCenterY - brickCenterY;
+
+                    // Determine if hit was more horizontal or vertical
+                    if (Math.abs(dx / brick.width) > Math.abs(dy / brick.height)) {
+                        // Hit left or right side
+                        gameState.ball.vx = -gameState.ball.vx;
+                    } else {
+                        // Hit top or bottom
+                        gameState.ball.vy = -gameState.ball.vy;
+                    }
+                }
+            });
+
+            // Check for win condition
+            const activeBricks = gameState.bricks.filter(b => b.active).length;
+            if (activeBricks === 0 && !gameState.won) {
+                gameState.won = true;
+                gameState.gameOver = true;
+                handleGameOver();
+            }
+        }
+
+        function getHighScores() {
+            try {
+                const scores = localStorage.getItem('breakoutHighScores');
+                return scores ? JSON.parse(scores) : [];
+            } catch (e) {
+                console.log('Error reading from localStorage:', e);
+            }
+            return [];
+        }
+
+        function saveHighScores(scores) {
+            localStorage.setItem('breakoutHighScores', JSON.stringify(scores));
+            console.log('High scores saved to localStorage:', scores);
+            return true;
+        }
+
+        function addHighScore(newScore) {
+            let highScores = getHighScores();
+            
+            console.log('Current high scores:', highScores);
+            console.log('Adding new score:', newScore);
+            
+            // Add new score
+            highScores.push(newScore);
+            
+            // Sort by score (descending)
+            highScores.sort((a, b) => b.score - a.score);
+            
+            // Find the index of the new score
+            const index = highScores.findIndex(s => 
+                s.score === newScore.score && 
+                s.bricks === newScore.bricks && 
+                s.date === newScore.date
+            );
+            
+            console.log('New score index before trimming:', index);
+            
+            // Keep only top 10
+            if (highScores.length > MAX_HIGH_SCORES) {
+                highScores = highScores.slice(0, MAX_HIGH_SCORES);
+            }
+            
+            console.log('High scores after trimming:', highScores);
+            
+            const saved = saveHighScores(highScores);
+            console.log('Save successful:', saved);
+            
+            // Return the index if it made the top 10, otherwise -1
+            return index < MAX_HIGH_SCORES ? index : -1;
+        }
+
+        function displayHighScores() {
+            const highScores = getHighScores();
+            scoresBodyEl.innerHTML = '';
+            
+            if (highScores.length === 0) {
+                scoresBodyEl.innerHTML = '<tr><td colspan="4" style="text-align: center;">No high scores yet!</td></tr>';
+                return;
+            }
+            
+            highScores.forEach((score, index) => {
+                const row = document.createElement('tr');
+                if (index === newHighScoreIndex) {
+                    row.className = 'new-score';
+                }
+                row.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td>${score.score}</td>
+                    <td>${score.bricks}</td>
+                    <td>${score.date}</td>
+                `;
+                scoresBodyEl.appendChild(row);
+            });
+        }
+
+        function showHighScores() {
+            displayHighScores();
+            highScoresEl.style.display = 'block';
+            gameOverEl.style.display = 'none';
+        }
+
+        function closeHighScores() {
+            highScoresEl.style.display = 'none';
+            newHighScoreIndex = -1;
+        }
+
+        function handleGameOver() {
+            const finalScore = gameState.score;
+            
+            // Create new score entry
+            const newScore = {
+                score: finalScore,
+                bricks: gameState.bricksDestroyed,
+                date: new Date().toLocaleDateString()
+            };
+            
+            // Add to high scores and get index
+            newHighScoreIndex = addHighScore(newScore);
+            
+            // Show game over message first
+            if (gameState.won) {
+                if (newHighScoreIndex !== -1) {
+                    gameOverEl.innerHTML = `YOU WIN! NEW HIGH SCORE!<br><span style="font-size: 32px;">Score: ${finalScore} (Rank #${newHighScoreIndex + 1})</span><br><span style="font-size: 24px;">Bricks Destroyed: ${gameState.bricksDestroyed}</span><br><span style="font-size: 20px;">Press SPACE to see high scores</span>`;
+                } else {
+                    gameOverEl.innerHTML = `YOU WIN!<br><span style="font-size: 32px;">Final Score: ${finalScore}</span><br><span style="font-size: 24px;">Bricks Destroyed: ${gameState.bricksDestroyed}</span><br><span style="font-size: 20px;">Press SPACE to see high scores</span>`;
+                }
+            } else {
+                if (newHighScoreIndex !== -1) {
+                    gameOverEl.innerHTML = `NEW HIGH SCORE!<br><span style="font-size: 32px;">Score: ${finalScore} (Rank #${newHighScoreIndex + 1})</span><br><span style="font-size: 24px;">Bricks Destroyed: ${gameState.bricksDestroyed}</span><br><span style="font-size: 20px;">Press SPACE to see high scores</span>`;
+                } else {
+                    gameOverEl.innerHTML = `GAME OVER<br><span style="font-size: 32px;">Final Score: ${finalScore}</span><br><span style="font-size: 24px;">Bricks Destroyed: ${gameState.bricksDestroyed}</span><br><span style="font-size: 20px;">Press SPACE to see high scores</span>`;
+                }
+            }
+            gameOverEl.style.display = 'block';
+        }
+
+        function drawGame() {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            drawBricks();
+            drawPaddle();
+            if (gameState.ball.active) {
+                drawBall();
+            }
+        }
+
+        function gameLoop() {
+            if (!gameState.gameOver) {
+                updatePaddle();
+                updateBall();
+            }
+            
+            drawGame();
+            requestAnimationFrame(gameLoop);
+        }
+
+        document.addEventListener('keydown', (e) => {
+            gameState.keys[e.key] = true;
+
+            if (e.key === ' ') {
+                e.preventDefault();
+                if (highScoresEl.style.display === 'block') {
+                    closeHighScores();
+                    initGame();
+                } else if (gameState.gameOver) {
+                    showHighScores();
+                }
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            gameState.keys[e.key] = false;
+        });
+
+        initGame();
+        gameLoop();
+    </script>
+</body>
+</html>
