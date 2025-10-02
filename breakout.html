@@ -64,13 +64,6 @@
             font-size: 24px;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
         }
-        #lives {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            font-size: 24px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-        }
         #gameOver {
             position: absolute;
             top: 50%;
@@ -144,7 +137,6 @@
 </head>
 <body class="wood-veneer">
     <div id="score">Score: 0</div>
-    <div id="lives">Lives: 3</div>
     <div id="gameOver">GAME OVER<br><span style="font-size: 24px;">Press SPACE to restart</span></div>
     <div id="highScores">
         <h2>HIGH SCORES</h2>
@@ -168,7 +160,6 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const scoreEl = document.getElementById('score');
-        const livesEl = document.getElementById('lives');
         const gameOverEl = document.getElementById('gameOver');
         const highScoresEl = document.getElementById('highScores');
         const scoresBodyEl = document.getElementById('scoresBody');
@@ -176,7 +167,7 @@
         // Game configuration
         const MAX_HIGH_SCORES = 10;
         let newHighScoreIndex = -1;
-        const NUM_BALLS = 2; // Configure number of balls in play
+        const NUM_BALLS = 5; // Configure number of balls in play
         const BRICK_COLS = 15;
         const BRICK_PADDING = 3;
         const BRICK_OFFSET_TOP = 80;
@@ -187,9 +178,9 @@
         const PADDLE_WIDTH = 120;
         const PADDLE_HEIGHT = 15;
         const PADDLE_Y = canvas.height - 40;
-        const PADDLE_SPEED = 8;
+        const PADDLE_SPEED = 10;
         
-        const BALL_RADIUS = 8;
+        const BALL_RADIUS = 5;
         const BALL_BASE_SPEED = 5;
         
         const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
@@ -229,7 +220,6 @@
 
         let gameState = {
             score: 0,
-            lives: 3,
             gameOver: false,
             won: false,
             meetingsDestroyed: 0,
@@ -330,7 +320,6 @@
         function initGame() {
             gameState = {
                 score: 0,
-                lives: 3,
                 gameOver: false,
                 won: false,
                 meetingsDestroyed: 0,
@@ -352,7 +341,6 @@
             highScoresEl.style.display = 'none';
             newHighScoreIndex = -1;
             scoreEl.textContent = 'Score: 0';
-            livesEl.textContent = 'Lives: 3';
         }
 
         function drawBricks() {
@@ -492,15 +480,6 @@
                     // Spawn a new ball
                     gameState.balls.push(launchBall());
                     
-                    // Lose a life
-                    gameState.lives--;
-                    livesEl.textContent = 'Lives: ' + gameState.lives;
-                    
-                    if (gameState.lives <= 0) {
-                        gameState.gameOver = true;
-                        handleGameOver();
-                        return;
-                    }
                     continue;
                 }
 
