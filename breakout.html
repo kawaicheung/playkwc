@@ -154,6 +154,7 @@
         </table>
         <button onclick="closeHighScores()">Continue (SPACE)</button>
     </div>
+    
     <canvas id="gameCanvas" width="1200" height="600"></canvas>
 
     <script>
@@ -165,13 +166,14 @@
         const scoresBodyEl = document.getElementById('scoresBody');
 
         // Game configuration
-        const MAX_HIGH_SCORES = 10;
         let newHighScoreIndex = -1;
-        const NUM_BALLS = 5; // Configure number of balls in play
+        const TIME_LABEL_WIDTH = 50; // Adjust this to control time label space
+        const MAX_HIGH_SCORES = 10;
+        const NUM_BALLS = 3; // Configure number of balls in play
         const BRICK_COLS = 15;
         const BRICK_PADDING = 3;
         const BRICK_OFFSET_TOP = 80;
-        const BRICK_OFFSET_LEFT = 20;
+        const BRICK_OFFSET_LEFT = TIME_LABEL_WIDTH + 10;
         const BRICK_WIDTH = (canvas.width - BRICK_OFFSET_LEFT * 2 - BRICK_PADDING * (BRICK_COLS - 1)) / BRICK_COLS;
         const BASE_BRICK_HEIGHT = 25;
         
@@ -363,7 +365,7 @@
                 const y = BRICK_OFFSET_TOP + i * (BASE_BRICK_HEIGHT + BRICK_PADDING);
                 if (y < 380) {
                     const hour = 8 + i;
-                    ctx.fillText(`${hour}:00`, BRICK_OFFSET_LEFT - 10, y + 5);
+                    ctx.fillText(`${hour}:00`, TIME_LABEL_WIDTH - 5, y + 5);
                 }
             }
             
